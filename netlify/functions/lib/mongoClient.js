@@ -1,22 +1,21 @@
 const { MongoClient } = require('mongodb');
-const dotenv = require('dotenv');
-
-dotenv.config();
 
 const uri = process.env.MONGO_URI;
-const client = new MongoClient(uri);
+let client;
+let clientPromise;
 
-let cachedDb = null;
+if (!uri) {
+  throw new Error('Please define the MONGO_URI environment variable');
+}
+
+if (!clientPromise) {
+  client = new MongoClient(uri);
+  clientPromise = client.connect();
+}
 
 async function connectToDatabase() {
-  if (cachedDb) {
-    return cachedDb;
-  }
-  if (!client.isConnected || !client.isConnected()) {
-    await client.connect();
-  }
-  cachedDb = client.db(); // default DB from connection string
-  return cachedDb;
+  await clientPromise;
+  return client.db(); // returns default DB from URI
 }
 
 module.exports = connectToDatabase;
