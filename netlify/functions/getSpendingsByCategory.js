@@ -1,10 +1,6 @@
 const connectToDatabase = require('./lib/mongoClient');
-const jwt = require('jsonwebtoken');
+const authenticate = require('./authMiddleware');
 const { ObjectId } = require('mongodb');
-const dotenv = require('dotenv');
-dotenv.config();
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 function getDateRange(filter) {
   const now = new Date();
@@ -15,22 +11,18 @@ function getDateRange(filter) {
       start = new Date(now.getFullYear(), now.getMonth(), 1);
       end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       break;
-
     case '1': // Last 6 months
       start = new Date(now.getFullYear(), now.getMonth() - 5, 1);
       end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       break;
-
     case '2': // This year
       start = new Date(now.getFullYear(), 0, 1);
       end = new Date(now.getFullYear() + 1, 0, 1);
       break;
-
     case '3': // Overall
       start = new Date(0);
       end = new Date(now.getFullYear() + 10, 0, 1);
       break;
-
     default:
       throw new Error('Invalid filter value');
   }
@@ -48,29 +40,16 @@ exports.handler = async (event) => {
       };
     }
 
-    const authHeader = event.headers.authorization || '';
-    if (!authHeader.startsWith('Bearer ')) {
+    const auth = await authenticate(event);
+    if (auth.error) {
       return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Missing or malformed token' }),
+        statusCode: auth.statusCode || 401,
+        body: JSON.stringify({ message: auth.error }),
       };
     }
 
-    const token = authHeader.slice(7).trim();
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch (err) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Invalid token' }),
-      };
-    }
-
-    const userId = decoded.userId;
+    const userId = auth.user.userId;
     const { start, end } = getDateRange(filter);
-
     const db = await connectToDatabase();
 
     const expenses = await db.collection('expenses').aggregate([
@@ -103,7 +82,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: {
-        'Access-Control-Allow-Origin': '*', 
+        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Authorization, Content-Type',
       },
       body: JSON.stringify({ spendingByCategory: result }),

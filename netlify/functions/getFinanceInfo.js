@@ -1,40 +1,18 @@
 const connectToDatabase = require('./lib/mongoClient');
-const jwt = require('jsonwebtoken');
+const authenticate = require('./authMiddleware');
 const { ObjectId } = require('mongodb');
-const dotenv = require('dotenv');
-dotenv.config();
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 exports.handler = async (event) => {
   try {
-    const authHeader = event.headers.authorization || '';
-    if (!authHeader.startsWith('Bearer ')) {
+    const auth = await authenticate(event);
+    if (auth.error) {
       return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Missing or malformed token' }),
-      };
-    }
-    const token = authHeader.slice(7).trim();
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Invalid token' }),
+        statusCode: auth.statusCode || 401,
+        body: JSON.stringify({ message: auth.error }),
       };
     }
 
-    const userId = decoded.userId;
-    if (!userId) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
+    const userId = auth.user.userId;
     const db = await connectToDatabase();
 
     const user = await db.collection('users').findOne(
