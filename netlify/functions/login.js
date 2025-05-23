@@ -13,13 +13,28 @@ const loginSchema = Joi.object({
 });
 
 exports.handler = async (event) => {
+  // Handle preflight request
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+      body: '',
+    };
+  }
+
   try {
     const body = JSON.parse(event.body);
-
     const { error, value } = loginSchema.validate(body);
     if (error) {
       return {
         statusCode: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
         body: JSON.stringify({ message: error.details[0].message }),
       };
     }
@@ -31,6 +46,9 @@ exports.handler = async (event) => {
     if (!user) {
       return {
         statusCode: 401,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
         body: JSON.stringify({ message: 'Invalid email or password' }),
       };
     }
@@ -39,6 +57,9 @@ exports.handler = async (event) => {
     if (!passwordMatch) {
       return {
         statusCode: 401,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
         body: JSON.stringify({ message: 'Invalid email or password' }),
       };
     }
@@ -51,6 +72,9 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
       body: JSON.stringify({
         token,
         user: {
@@ -64,6 +88,9 @@ exports.handler = async (event) => {
     console.error('Login error:', err);
     return {
       statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }

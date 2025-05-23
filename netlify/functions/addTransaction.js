@@ -45,6 +45,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // Validate request body
     const { error, value } = expenseSchema.validate(body);
     if (error) {
       return {
@@ -55,6 +56,7 @@ exports.handler = async (event) => {
 
     const { amount, category, note, date } = value;
 
+    // Parse and validate date
     const expenseDate = date ? new Date(date) : new Date();
     if (isNaN(expenseDate.getTime())) {
       return {
@@ -67,6 +69,7 @@ exports.handler = async (event) => {
     const expensesCollection = db.collection('expenses');
     const usersCollection = db.collection('users');
 
+    // Fetch user data for salary and saving goal
     const user = await usersCollection.findOne(
       { _id: new ObjectId(userId) },
       { projection: { monthlySalary: 1, savingGoal: 1 } }
@@ -79,6 +82,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // Construct new expense record
     const expense = {
       userId: new ObjectId(userId),
       amount,
@@ -90,9 +94,10 @@ exports.handler = async (event) => {
       createdAt: new Date(),
     };
 
+    // Insert the new expense
     await expensesCollection.insertOne(expense);
 
-    // Calculate total expenses for the month
+    // Calculate total spent for the month of the expense
     const { start, end } = getMonthRange(expenseDate);
     const monthlyExpenses = await expensesCollection.aggregate([
       {
@@ -112,6 +117,7 @@ exports.handler = async (event) => {
     const totalSpentThisMonth = monthlyExpenses[0]?.totalSpent || 0;
     const updatedBalance = (user.monthlySalary || 0) - totalSpentThisMonth;
 
+    // Update user's balance in DB
     await usersCollection.updateOne(
       { _id: new ObjectId(userId) },
       { $set: { balance: updatedBalance } }

@@ -3,11 +3,25 @@ const authenticate = require('./authMiddleware');
 const { ObjectId } = require('mongodb');
 
 exports.handler = async (event) => {
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      },
+      body: '',
+    };
+  }
+
   try {
     const auth = await authenticate(event);
     if (auth.error) {
       return {
         statusCode: auth.statusCode || 401,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: auth.error }),
       };
     }
@@ -15,11 +29,18 @@ exports.handler = async (event) => {
     const userId = auth.user.userId;
     const db = await connectToDatabase();
 
-    // Parse filter from query string
     const params = event.queryStringParameters || {};
-    const filter = parseInt(params.filter || '0', 10); // default to 0
+    const filterRaw = params.filter || '0';
+    const filter = parseInt(filterRaw, 10);
 
-    // Determine date range
+    if (![0, 1, 2].includes(filter)) {
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ message: 'Invalid filter value' }),
+      };
+    }
+
     const now = new Date();
     let startDate;
 
@@ -34,11 +55,6 @@ exports.handler = async (event) => {
       // Last 90 days
       startDate = new Date();
       startDate.setDate(now.getDate() - 90);
-    } else {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: 'Invalid filter value' }),
-      };
     }
 
     const transactions = await db
@@ -62,6 +78,7 @@ exports.handler = async (event) => {
     console.error('Error fetching transactions by timeframe:', error);
     return {
       statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }

@@ -20,11 +20,25 @@ const categorySchema = Joi.object({
 });
 
 exports.handler = async (event) => {
+  // CORS Preflight support
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+      body: '',
+    };
+  }
+
   try {
     const auth = await authenticate(event);
     if (auth.error) {
       return {
         statusCode: auth.statusCode || 401,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: auth.error }),
       };
     }
@@ -36,6 +50,7 @@ exports.handler = async (event) => {
     } catch {
       return {
         statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: 'Invalid JSON body' }),
       };
     }
@@ -44,11 +59,12 @@ exports.handler = async (event) => {
     if (error) {
       return {
         statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: error.details[0].message }),
       };
     }
-    const newCategory = value.name;
 
+    const newCategory = value.name;
     const db = await connectToDatabase();
     const users = db.collection('users');
 
@@ -56,6 +72,7 @@ exports.handler = async (event) => {
     if (!user) {
       return {
         statusCode: 404,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: 'User not found' }),
       };
     }
@@ -75,6 +92,7 @@ exports.handler = async (event) => {
     if (updatedCategories.includes(newCategory)) {
       return {
         statusCode: 409,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: 'Category already exists' }),
       };
     }
@@ -86,12 +104,14 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ message: 'Category added successfully' }),
     };
   } catch (error) {
     console.error('Error adding category:', error);
     return {
       statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }

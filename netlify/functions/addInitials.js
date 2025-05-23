@@ -1,6 +1,6 @@
 const connectToDatabase = require('./lib/mongoClient');
 const Joi = require('joi');
-const authenticate = require('./authMiddleware'); // make sure it supports async if needed
+const authenticate = require('./authMiddleware');
 const { ObjectId } = require('mongodb');
 
 const salarySchema = Joi.object({
@@ -10,6 +10,7 @@ const salarySchema = Joi.object({
 
 exports.handler = async (event) => {
   try {
+    // Authenticate user
     const auth = await authenticate(event);
     if (auth.error) {
       return {
@@ -36,6 +37,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // Validate input
     const { error, value } = salarySchema.validate(body);
     if (error) {
       return {
@@ -45,8 +47,10 @@ exports.handler = async (event) => {
     }
 
     const { monthlySalary, savingGoal } = value;
+
     const db = await connectToDatabase();
 
+    // Update user document
     const result = await db.collection('users').updateOne(
       { _id: new ObjectId(userId) },
       {
@@ -65,7 +69,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Optional: fetch updated fields to return
+    // Retrieve updated fields
     const updatedUser = await db.collection('users').findOne(
       { _id: new ObjectId(userId) },
       { projection: { monthlySalary: 1, savingGoal: 1 } }

@@ -21,12 +21,28 @@ const signupSchema = Joi.object({
 });
 
 exports.handler = async (event) => {
+  // Handle preflight request
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+      body: '',
+    };
+  }
+
   try {
     const body = JSON.parse(event.body);
     const { error, value } = signupSchema.validate(body);
     if (error) {
       return {
         statusCode: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
         body: JSON.stringify({ message: error.details[0].message }),
       };
     }
@@ -38,6 +54,9 @@ exports.handler = async (event) => {
     if (existingUser) {
       return {
         statusCode: 409,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
         body: JSON.stringify({ message: 'User already exists with this email' }),
       };
     }
@@ -50,7 +69,7 @@ exports.handler = async (event) => {
       passwordHash,
       dateRegistered: new Date(),
       balance: 0,
-      totalSavings: 0,           // fixed key name
+      totalSavings: 0,
       categories: DEFAULT_CATEGORIES,
     };
 
@@ -58,12 +77,18 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 201,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
       body: JSON.stringify({ message: 'User created successfully' }),
     };
   } catch (error) {
     console.error('Signup error:', error);
     return {
       statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+      },
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
