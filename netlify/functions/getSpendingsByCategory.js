@@ -2,6 +2,12 @@ const connectToDatabase = require('./lib/mongoClient');
 const authenticate = require('./authMiddleware');
 const { ObjectId } = require('mongodb');
 
+const defaultHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+};
+
 function getDateRange(filter) {
   const now = new Date();
   let start, end;
@@ -31,15 +37,11 @@ function getDateRange(filter) {
 }
 
 exports.handler = async (event) => {
-  // CORS preflight response
+  // Handle CORS preflight response immediately
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-      },
+      headers: defaultHeaders,
       body: '',
     };
   }
@@ -49,16 +51,17 @@ exports.handler = async (event) => {
     if (!['0', '1', '2', '3'].includes(filter)) {
       return {
         statusCode: 400,
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        headers: defaultHeaders,
         body: JSON.stringify({ message: 'Invalid filter parameter' }),
       };
     }
 
+    // Authenticate only for non-OPTIONS requests
     const auth = await authenticate(event);
     if (auth.error) {
       return {
         statusCode: auth.statusCode || 401,
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        headers: defaultHeaders,
         body: JSON.stringify({ message: auth.error }),
       };
     }
@@ -99,17 +102,14 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-      },
+      headers: defaultHeaders,
       body: JSON.stringify({ spendingByCategory: result }),
     };
   } catch (error) {
     console.error('Error fetching spending by filter:', error);
     return {
       statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
+      headers: defaultHeaders,
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
