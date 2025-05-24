@@ -2,12 +2,6 @@ const connectToDatabase = require('./lib/mongoClient');
 const authenticate = require('./authMiddleware');
 const { ObjectId } = require('mongodb');
 
-const defaultHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-};
-
 function getDateRange(filter) {
   const now = new Date();
   let start, end;
@@ -36,12 +30,22 @@ function getDateRange(filter) {
   return { start, end };
 }
 
+const responseHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+};
+
+const optionsHeaders = {
+  ...responseHeaders,
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+};
+
 exports.handler = async (event) => {
-  // Handle CORS preflight response immediately
+  // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: defaultHeaders,
+      headers: optionsHeaders,
       body: '',
     };
   }
@@ -51,17 +55,16 @@ exports.handler = async (event) => {
     if (!['0', '1', '2', '3'].includes(filter)) {
       return {
         statusCode: 400,
-        headers: defaultHeaders,
+        headers: responseHeaders,
         body: JSON.stringify({ message: 'Invalid filter parameter' }),
       };
     }
 
-    // Authenticate only for non-OPTIONS requests
     const auth = await authenticate(event);
     if (auth.error) {
       return {
         statusCode: auth.statusCode || 401,
-        headers: defaultHeaders,
+        headers: responseHeaders,
         body: JSON.stringify({ message: auth.error }),
       };
     }
@@ -102,14 +105,14 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: defaultHeaders,
+      headers: responseHeaders,
       body: JSON.stringify({ spendingByCategory: result }),
     };
   } catch (error) {
     console.error('Error fetching spending by filter:', error);
     return {
       statusCode: 500,
-      headers: defaultHeaders,
+      headers: responseHeaders,
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
