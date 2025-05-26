@@ -58,6 +58,8 @@ exports.handler = async (event) => {
     }
 
     if(filter===3){
+
+      console.log('data : ', userId, startDate)
       const transactions = await db
       .collection('transactions')
       .find({
