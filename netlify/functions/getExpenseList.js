@@ -28,41 +28,49 @@ exports.handler = async (event) => {
     const userId = auth.user.userId;
     const db = await connectToDatabase();
 
-    // Fetch user salary
-    const user = await db.collection('users').findOne(
-      { _id: new ObjectId(userId) },
-      { projection: { salary: 1 } }
-    );
+    const params = event.queryStringParameters || {};
+    const filter = parseInt(params.filter || '0', 10);
 
-    if (!user || typeof user.salary !== 'number') {
+    if (![0, 1, 2, 3].includes(filter)) {
       return {
-        statusCode: 404,
+        statusCode: 400,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ message: 'User salary not found' }),
+        body: JSON.stringify({ message: 'Invalid filter value' }),
       };
     }
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    let startDate = null;
 
-    // Fetch this month's expenses
-    const expenses = await db.collection('expenses').aggregate([
-      {
-        $match: {
-          userId: new ObjectId(userId),
-          createdAt: { $gte: startOfMonth },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$amount' },
-        },
-      },
-    ]).toArray();
+    switch (filter) {
+      case 0: // This month
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 1: // Last 30 days
+        startDate = new Date();
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case 2: // Last 90 days
+        startDate = new Date();
+        startDate.setDate(now.getDate() - 90);
+        break;
+      case 3: // All
+        break;
+    }
 
-    const totalExpenses = expenses.length > 0 ? expenses[0].total : 0;
-    const balance = user.salary - totalExpenses;
+    const query = {
+      userId: new ObjectId(userId),
+    };
+
+    if (startDate && filter !== 3) {
+      query.createdAt = { $gte: startDate };
+    }
+
+    const transactions = await db
+      .collection('expenses')
+      .find(query)
+      .sort({ createdAt: -1 })
+      .toArray();
 
     return {
       statusCode: 200,
@@ -70,10 +78,10 @@ exports.handler = async (event) => {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Authorization, Content-Type',
       },
-      body: JSON.stringify({ balance }),
+      body: JSON.stringify({ transactions }),
     };
   } catch (error) {
-    console.error('Error calculating balance:', error);
+    console.error('Error fetching transactions by timeframe:', error);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },

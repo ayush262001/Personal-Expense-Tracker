@@ -3,7 +3,6 @@ const authenticate = require('./authMiddleware');
 const { ObjectId } = require('mongodb');
 
 exports.handler = async (event) => {
-  // Handle CORS preflight request
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -29,18 +28,41 @@ exports.handler = async (event) => {
     const userId = auth.user.userId;
     const db = await connectToDatabase();
 
+    // Fetch user salary
     const user = await db.collection('users').findOne(
       { _id: new ObjectId(userId) },
-      { projection: { balance: 1 } }
+      { projection: { salary: 1 } }
     );
 
-    if (!user) {
+    if (!user || typeof user.salary !== 'number') {
       return {
         statusCode: 404,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ message: 'User not found' }),
+        body: JSON.stringify({ message: 'User salary not found' }),
       };
     }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Fetch this month's expenses
+    const expenses = await db.collection('expenses').aggregate([
+      {
+        $match: {
+          userId: new ObjectId(userId),
+          createdAt: { $gte: startOfMonth },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' },
+        },
+      },
+    ]).toArray();
+
+    const totalExpenses = expenses.length > 0 ? expenses[0].total : 0;
+    const balance = user.salary - totalExpenses;
 
     return {
       statusCode: 200,
@@ -48,10 +70,10 @@ exports.handler = async (event) => {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Authorization, Content-Type',
       },
-      body: JSON.stringify({ balance: user.balance || 0 }),
+      body: JSON.stringify({ balance }),
     };
   } catch (error) {
-    console.error('Error fetching balance:', error);
+    console.error('Error calculating balance:', error);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
