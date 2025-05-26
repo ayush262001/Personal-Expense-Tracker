@@ -9,12 +9,26 @@ const salarySchema = Joi.object({
 });
 
 exports.handler = async (event) => {
+  // ✅ Handle CORS preflight request
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      },
+      body: '',
+    };
+  }
+
   try {
-    // Authenticate user
+    // ✅ Authenticate user
     const auth = await authenticate(event);
     if (auth.error) {
       return {
         statusCode: auth.statusCode || 401,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: auth.error }),
       };
     }
@@ -23,6 +37,7 @@ exports.handler = async (event) => {
     if (!event.body) {
       return {
         statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: 'Missing request body' }),
       };
     }
@@ -33,24 +48,25 @@ exports.handler = async (event) => {
     } catch {
       return {
         statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: 'Invalid JSON body' }),
       };
     }
 
-    // Validate input
+    // ✅ Validate input
     const { error, value } = salarySchema.validate(body);
     if (error) {
       return {
         statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: error.details[0].message }),
       };
     }
 
     const { monthlySalary, savingGoal } = value;
-
     const db = await connectToDatabase();
 
-    // Update user document
+    // ✅ Update user document
     const result = await db.collection('users').updateOne(
       { _id: new ObjectId(userId) },
       {
@@ -65,11 +81,12 @@ exports.handler = async (event) => {
     if (result.matchedCount === 0) {
       return {
         statusCode: 404,
+        headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ message: 'User not found' }),
       };
     }
 
-    // Retrieve updated fields
+    // ✅ Retrieve updated values
     const updatedUser = await db.collection('users').findOne(
       { _id: new ObjectId(userId) },
       { projection: { monthlySalary: 1, savingGoal: 1 } }
@@ -77,6 +94,10 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      },
       body: JSON.stringify({
         message: 'Monthly salary and saving goal updated successfully',
         monthlySalary: updatedUser.monthlySalary,
@@ -87,6 +108,7 @@ exports.handler = async (event) => {
     console.error('Error updating salary/saving:', error);
     return {
       statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
