@@ -73,7 +73,7 @@ exports.handler = async (event) => {
 
     const { amount, category, note, date } = value;
 
-    const expenseDate = date ? new Date(date) : new Date();
+    const expenseDate = new Date().now;
     if (isNaN(expenseDate.getTime())) {
       return {
         statusCode: 400,

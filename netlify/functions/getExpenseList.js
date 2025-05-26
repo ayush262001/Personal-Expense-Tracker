@@ -67,7 +67,7 @@ exports.handler = async (event) => {
     }
 
     const transactions = await db
-      .collection('transactions')
+      .collection('expenses')
       .find(query)
       .sort({ createdAt: -1 })
       .toArray();
