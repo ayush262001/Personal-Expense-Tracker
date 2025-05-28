@@ -30,8 +30,7 @@ exports.handler = async (event) => {
 
     // Fetch user salary
     const user = await db.collection('users').findOne(
-      { _id: new ObjectId(userId) },
-      { projection: { salary: 1 } }
+      { _id: new ObjectId(userId) }
     );
 
     if (!user) {
@@ -62,7 +61,7 @@ exports.handler = async (event) => {
     ]).toArray();
 
     const totalExpenses = expenses.length > 0 ? expenses[0].total : 0;
-    const balance = user.salary - totalExpenses;
+    const balance = user.monthlySalary - totalExpenses;
 
     return {
       statusCode: 200,
