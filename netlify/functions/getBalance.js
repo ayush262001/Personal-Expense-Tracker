@@ -34,7 +34,7 @@ exports.handler = async (event) => {
       { projection: { salary: 1 } }
     );
 
-    if (!user || typeof user.salary !== 'number') {
+    if (!user) {
       return {
         statusCode: 404,
         headers: { 'Access-Control-Allow-Origin': '*' },
